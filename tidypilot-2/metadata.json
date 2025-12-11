@@ -1,0 +1,5 @@
+{
+  "name": "TidyPilot",
+  "description": "An intelligent data quality assistant that profiles CSV datasets, detects anomalies, and generates actionable Power Query and Excel cleaning plans using Gemini AI.",
+  "requestFramePermissions": []
+}
