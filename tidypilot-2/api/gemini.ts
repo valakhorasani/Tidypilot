@@ -122,7 +122,7 @@ export default async function handler(req: any, res: any) {
             }
           },
 
-          biModeling: {
+          biing: {
             type: Type.OBJECT,
             properties: {
               factMeasures: {
@@ -166,12 +166,12 @@ export default async function handler(req: any, res: any) {
           'steps',
           'powerQuerySteps',
           'excelFormulas',
-          'biModeling'
+          'biing'
         ]
       };
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+      const response = await ai.s.generateContent({
+        model: 'gemini-3.8-flash',
         contents: prompt,
         config: {
           responseMimeType: 'application/json',
