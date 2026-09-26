@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type, Schema } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 import { DatasetStats, CleaningPlan } from '../types';
 
 export default async function handler(req: any, res: any) {
@@ -27,7 +27,9 @@ export default async function handler(req: any, res: any) {
       question?: string;
     };
 
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({
+      apiKey
+    });
 
     // ---------------------------------------------------------
     // CLEANING PLAN
@@ -47,8 +49,13 @@ export default async function handler(req: any, res: any) {
           name: c.name.substring(0, 40),
           type: c.inferredType,
           miss:
-            Math.round((c.missingCount / stats.rowCount) * 100) + '%',
-          unique: c.uniqueCount > 100 ? '>100' : c.uniqueCount,
+            Math.round(
+              (c.missingCount / stats.rowCount) * 100
+            ) + '%',
+          unique:
+            c.uniqueCount > 100
+              ? '>100'
+              : c.uniqueCount,
           issues: c.issues
             .slice(0, 2)
             .map(
@@ -59,39 +66,62 @@ export default async function handler(req: any, res: any) {
       };
 
       const prompt = `
-        Act as a Data Quality & BI Expert.
-        Generate a JSON cleaning plan.
+Act as a Data Quality & BI Expert.
 
-        INPUT SUMMARY:
-        ${JSON.stringify(summaryForAI)}
+Generate a JSON cleaning plan for the uploaded dataset.
 
-        OUTPUT REQUIREMENTS:
-        1. steps: Array (stepNumber, title, action, reason, powerQuery, excel, risk)
-           - Order: Type, Text, Missing, Duplicates, Outliers, Validation.
-        2. powerQuerySteps: Array of strings (M-code).
-        3. excelFormulas: Array (issue, formula).
-        4. biModeling: Object
-           - factMeasures: String[]
-           - dimensions: String[]
-           - starSchema: String (text diagram)
-           - kpis: Array (name, dax, description)
-      `;
+INPUT SUMMARY:
+${JSON.stringify(summaryForAI)}
 
-      const responseSchema: Schema = {
-        type: Type.OBJECT,
+OUTPUT REQUIREMENTS:
+
+1. steps:
+Array of objects containing:
+- stepNumber
+- title
+- action
+- reason
+- powerQuery
+- excel
+- risk
+
+Order the steps:
+Type, Text, Missing, Duplicates, Outliers, Validation.
+
+2. powerQuerySteps:
+Array of strings containing Power Query M-code.
+
+3. excelFormulas:
+Array of objects containing:
+- issue
+- formula
+
+4. biModeling:
+Object containing:
+- factMeasures: String[]
+- dimensions: String[]
+- starSchema: String
+- kpis: Array of objects containing:
+  - name
+  - dax
+  - description
+`;
+
+      const schema = {
+        type: 'object',
         properties: {
           steps: {
-            type: Type.ARRAY,
+            type: 'array',
             items: {
-              type: Type.OBJECT,
+              type: 'object',
               properties: {
-                stepNumber: { type: Type.INTEGER },
-                title: { type: Type.STRING },
-                action: { type: Type.STRING },
-                reason: { type: Type.STRING },
-                powerQuery: { type: Type.STRING },
-                excel: { type: Type.STRING },
-                risk: { type: Type.STRING }
+                stepNumber: { type: 'integer' },
+                title: { type: 'string' },
+                action: { type: 'string' },
+                reason: { type: 'string' },
+                powerQuery: { type: 'string' },
+                excel: { type: 'string' },
+                risk: { type: 'string' }
               },
               required: [
                 'stepNumber',
@@ -106,49 +136,59 @@ export default async function handler(req: any, res: any) {
           },
 
           powerQuerySteps: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING }
+            type: 'array',
+            items: {
+              type: 'string'
+            }
           },
 
           excelFormulas: {
-            type: Type.ARRAY,
+            type: 'array',
             items: {
-              type: Type.OBJECT,
+              type: 'object',
               properties: {
-                issue: { type: Type.STRING },
-                formula: { type: Type.STRING }
+                issue: { type: 'string' },
+                formula: { type: 'string' }
               },
               required: ['issue', 'formula']
             }
           },
 
-          biing: {
-            type: Type.OBJECT,
+          biModeling: {
+            type: 'object',
             properties: {
               factMeasures: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING }
+                type: 'array',
+                items: {
+                  type: 'string'
+                }
               },
 
               dimensions: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING }
+                type: 'array',
+                items: {
+                  type: 'string'
+                }
               },
 
               starSchema: {
-                type: Type.STRING
+                type: 'string'
               },
 
               kpis: {
-                type: Type.ARRAY,
+                type: 'array',
                 items: {
-                  type: Type.OBJECT,
+                  type: 'object',
                   properties: {
-                    name: { type: Type.STRING },
-                    dax: { type: Type.STRING },
-                    description: { type: Type.STRING }
+                    name: { type: 'string' },
+                    dax: { type: 'string' },
+                    description: { type: 'string' }
                   },
-                  required: ['name', 'dax', 'description']
+                  required: [
+                    'name',
+                    'dax',
+                    'description'
+                  ]
                 }
               }
             },
@@ -166,20 +206,23 @@ export default async function handler(req: any, res: any) {
           'steps',
           'powerQuerySteps',
           'excelFormulas',
-          'biing'
+          'biModeling'
         ]
       };
 
-      const response = await ai.s.generateContent({
+      const interaction = await ai.interactions.create({
         model: 'gemini-3.8-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema
-        }
+        input: prompt,
+        response_format: [
+          {
+            type: 'text',
+            mime_type: 'application/json',
+            schema
+          }
+        ]
       });
 
-      const text = response.text;
+      const text = interaction.output_text;
 
       if (!text) {
         throw new Error('No response from Gemini');
@@ -187,7 +230,9 @@ export default async function handler(req: any, res: any) {
 
       const result = JSON.parse(text) as CleaningPlan;
 
-      return res.status(200).json({ result });
+      return res.status(200).json({
+        result
+      });
     }
 
     // ---------------------------------------------------------
@@ -208,11 +253,14 @@ export default async function handler(req: any, res: any) {
         ),
         uniq: c.uniqueCount,
         iss: c.issues.map(i => i.type),
+
         stats: c.numericStats
           ? {
               min: c.numericStats.min,
               max: c.numericStats.max,
-              avg: Math.round(c.numericStats.mean)
+              avg: Math.round(
+                c.numericStats.mean
+              )
             }
           : undefined
       }));
@@ -225,32 +273,40 @@ export default async function handler(req: any, res: any) {
       };
 
       const prompt = `
-        You are TidyPilot, a helpful data quality assistant.
+You are TidyPilot, a helpful data quality assistant.
 
-        CONTEXT (Uploaded Dataset):
-        ${JSON.stringify(context)}
+CONTEXT (Uploaded Dataset):
+${JSON.stringify(context)}
 
-        USER QUESTION: "${question}"
+USER QUESTION:
+${question}
 
-        INSTRUCTIONS:
-        1. Answer using ONLY the provided context. Do NOT use external knowledge.
-        2. If the question is not about the dataset's issues, cleaning, or BI structure, say:
-           "I can only answer questions based on your uploaded file."
-        3. Structure:
-           Answer: [Direct, concise answer, max 4 sentences]
-           Evidence: [Bullet point list of specific counts, %s, column names, or stats from context]
-        4. Do not delete rows (except exact duplicates).
-        5. Be professional and helpful.
-      `;
+INSTRUCTIONS:
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt
+1. Answer using ONLY the provided dataset context.
+2. Do NOT use external knowledge.
+3. If the question is not about the dataset's issues, cleaning, or BI structure, say:
+"I can only answer questions based on your uploaded file."
+4. Structure the answer as:
+
+Answer:
+[Direct, concise answer, maximum 4 sentences]
+
+Evidence:
+[Bullet point list of specific counts, percentages, column names, or statistics from the dataset context]
+
+5. Do not delete rows except exact duplicates.
+6. Be professional and helpful.
+`;
+
+      const interaction = await ai.interactions.create({
+        model: 'gemini-3.8-flash',
+        input: prompt
       });
 
       return res.status(200).json({
         result:
-          response.text ||
+          interaction.output_text ||
           "I couldn't generate a response."
       });
     }
