@@ -1,26 +1,27 @@
 import { GoogleGenAI, Type, Schema } from '@google/genai';
 import { DatasetStats, CleaningPlan } from '../types';
 
-export default async function handler(request: Request) {
-  if (request.method !== 'POST') {
-    return Response.json(
-      { error: 'Method not allowed' },
-      { status: 405 }
-    );
+export default async function handler(req: any, res: any) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({
+      error: 'Method not allowed'
+    });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    return Response.json(
-      { error: 'Gemini API key is not configured.' },
-      { status: 500 }
-    );
+    return res.status(500).json({
+      error: 'Gemini API key is not configured.'
+    });
   }
 
   try {
-    const body = await request.json();
-    const { operation, stats, question } = body as {
+    const {
+      operation,
+      stats,
+      question
+    } = req.body as {
       operation: 'cleaningPlan' | 'ask';
       stats: DatasetStats;
       question?: string;
@@ -186,7 +187,7 @@ export default async function handler(request: Request) {
 
       const result = JSON.parse(text) as CleaningPlan;
 
-      return Response.json({ result });
+      return res.status(200).json({ result });
     }
 
     // ---------------------------------------------------------
@@ -194,10 +195,9 @@ export default async function handler(request: Request) {
     // ---------------------------------------------------------
     if (operation === 'ask') {
       if (!question) {
-        return Response.json(
-          { error: 'Question is required.' },
-          { status: 400 }
-        );
+        return res.status(400).json({
+          error: 'Question is required.'
+        });
       }
 
       const allColumnsSummary = stats.columns.map(c => ({
@@ -248,24 +248,22 @@ export default async function handler(request: Request) {
         contents: prompt
       });
 
-      return Response.json({
+      return res.status(200).json({
         result:
           response.text ||
           "I couldn't generate a response."
       });
     }
 
-    return Response.json(
-      { error: 'Invalid operation.' },
-      { status: 400 }
-    );
+    return res.status(400).json({
+      error: 'Invalid operation.'
+    });
 
   } catch (error) {
     console.error('Gemini API Error:', error);
 
-    return Response.json(
-      { error: 'Gemini request failed.' },
-      { status: 500 }
-    );
+    return res.status(500).json({
+      error: 'Gemini request failed.'
+    });
   }
 }
