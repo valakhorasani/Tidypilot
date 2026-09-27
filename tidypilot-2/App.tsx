@@ -180,6 +180,21 @@ const App: React.FC = () => {
         isOpen={isChatOpen} 
         onClose={() => setIsChatOpen(false)} 
       />
+
+      {/* Footer */}
+      <footer className="border-t border-slate-200 mt-10 py-5 text-center text-xs text-slate-400">
+        Created by{" "}
+        <span className="font-medium text-slate-500">Seyedvala Khorasani</span>
+        {" · "}
+        <a
+          href="https://www.linkedin.com/in/vala-khorasani/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-indigo-600 transition-colors"
+        >
+          LinkedIn
+        </a>
+      </footer>
     </div>
   );
 };
